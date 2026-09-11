@@ -20,4 +20,9 @@ ubuntu/config/nvim/swap/
 ubuntu/config/nvim/undo/
 ubuntu/config/nvim/view/
 ubuntu/config/nvim/spell/*.add
+ubuntu/config/nvim/spell/*.spl
+ubuntu/config/nvim/spell/en_custom.txt
+ubuntu/config/nvim/spell/en_words.txt
+ubuntu/config/nvim/spell/es_words.txt
+ubuntu/config/nvim/lua/plugins/.atl/
 ubuntu/config/nvim/spell/*.add.spl

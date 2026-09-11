@@ -6,7 +6,7 @@ intent: sanitized-portable-windows-ubuntu-wsl-and-neovim-replication
 scope:
   windows: manual-documentation-and-templates-only
   ubuntu_wsl: idempotent-agent-runnable-scripts
-  neovim: curated-lazyvim-core-configuration
+  neovim: full-lazyvim-personalization-with-preserved-activation-state
   technical_artifact_language: English
 
 distribution:
@@ -72,27 +72,54 @@ ubuntu_automated_components:
     - colorls
   note: Optional command binaries are discovered at runtime and are not fetched by this stage.
 
-neovim_core:
+neovim_personalization:
   config_source: ubuntu/config/nvim
   framework: LazyVim
   plugin_manager: lazy.nvim
-  default_colorscheme: catppuccin-mocha
-  picker: fzf-lua
-  diff_ui_owner: mini.diff
-  git_hunk_actions: gitsigns.nvim-with-signs-and-overlays-disabled
-  plugin_sources:
-    - https://github.com/folke/lazy.nvim.git
-    - https://github.com/LazyVim/LazyVim.git
-    - https://github.com/catppuccin/nvim.git
-    - https://github.com/ibhagwan/fzf-lua.git
-    - https://github.com/lewis6991/gitsigns.nvim.git
-    - https://github.com/nvim-mini/mini.diff.git
+  fidelity_source_file_count: 49
+  inventory: docs/nvim-configuration-inventory.md
+  deferred_defects: docs/nvim-known-issues.md
+  feature_groups:
+    - markdown-render-preview-and-lint
+    - treesitter-and-language-extras
+    - themes-dashboard-statusline-and-navigation
+    - oil-mini-files-snacks-picker-and-fzf-lua
+    - git-minidiff-and-dap
+    - obsidian-and-ai-provider-specifications
+  activation_contract:
+    preserve_negative_specs: true
+    disabled_by_default:
+      - avante.nvim
+      - blink-cmp-copilot
+      - claudecode.nvim
+      - codecompanion.nvim
+      - CopilotChat.nvim
+      - copilot.lua
+      - gemini-cli.nvim
+      - obsidian.nvim
+      - opencode.nvim
+      - precognition.nvim
+      - smear-cursor.nvim
+  local_overrides:
+    obsidian_path: DOTFILES_NVIM_OBSIDIAN_PATH
+    obsidian_workspace: DOTFILES_NVIM_OBSIDIAN_WORKSPACE
+    unresolved_behavior: leave-integration-disabled
+  spell_dictionary:
+    custom_source: ubuntu/config/nvim/spell/custom-words.txt
+    generated_spl: prohibited
+    bulk_system_dumps: prohibited
   lock_metadata: ubuntu/config/nvim/lazy-lock.json
+  lock_metadata_adaptation: preserve-all-69-source-pins-and-add-published-explicit-minidiff-pin
+  representation_adaptations:
+    dashboard_header: quoted-padded-rows-joined-with-original-newline-semantics
+  source_lock_pin_count: 69
+  published_lock_pin_count: 70
+  explicit_minidiff_pin_retained: true
   vendoring: prohibited
   runtime_discovery:
-    homebrew: executable-and-prefix-query
+    homebrew: standard-linuxbrew-directory-then-executable-prefix-query
     node: environment-manager-bins-then-homebrew-prefix-then-PATH
-    wsl_clipboard: use-win32yank.exe-only-when-detected
+    wsl_clipboard: source-behavior-preserved
 
 managed_destinations:
   - source: ubuntu/config/zsh/.zshrc
@@ -120,9 +147,9 @@ excluded_sensitive_and_runtime_state:
   - Atuin account data and history databases
   - Warp account, workspace, telemetry, and session state
   - credentials, private keys, access tokens, and authentication files
-  - personal AI plugin specs, prompts, histories, and provider settings
-  - personal vault paths and project paths
-  - optional overlapping explorers, debuggers, notes, and AI plugins
+  - AI/provider credentials, authentication files, histories, and runtime databases
+  - personal vault paths and project paths (portable variable references are allowed)
+  - generated spell dictionaries and bulk system dictionary exports
   - Neovim plugin checkouts and Mason installations under XDG data
   - Neovim state, history, sessions, logs, and caches under XDG state and cache
   - caches and downloaded package payloads

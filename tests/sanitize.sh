@@ -19,7 +19,9 @@ bad_user_one='reo''s156'
 bad_user_two='reo''s1'
 hard_home='/'"home"'/[[:alnum:]_.-]+/'
 windows_home="(/mnt/[[:alpha:]]/Users/($bad_user_one|$bad_user_two)/|[[:alpha:]]:\\\\Users\\\\($bad_user_one|$bad_user_two)(\\\\|/))"
-if grep -RqE "$hard_home|$windows_home" "$ROOT"; then
+home_matches="$(grep -RhE "$hard_home|$windows_home" "$ROOT" || true)"
+home_matches="${home_matches//\/home\/linuxbrew\/.linuxbrew\//<standard-linuxbrew>\/}"
+if grep -qE "$hard_home|$windows_home" <<<"$home_matches"; then
   printf 'Sanitization failed: machine-specific home path found.\n' >&2
   exit 1
 fi
@@ -27,12 +29,18 @@ if grep -RqE '(api[_-]?key|access[_-]?token|client[_-]?secret|authorization)[[:s
   printf 'Sanitization failed: credential-like payload found.\n' >&2
   exit 1
 fi
-if grep -RqiE '(copilot|avante|claude.?code|codecompanion|gemini|opencode|obsidian|nvim-dap|debugpy|neo-tree|snacks_explorer|mini.files|oil.nvim)' "$NVIM_ROOT"; then
-  printf 'Sanitization failed: excluded AI, notes, debugger, or explorer plugin found.\n' >&2
+# AI, provider, debugger, explorer, and Obsidian specs/prompts are expected
+# configuration. Reject only embedded machine paths, credentials, and payloads.
+if grep -RqE '(/mnt/[a-zA-Z]/Users/|[A-Za-z]:\\\\Users\\\\|\.nvm/versions/node/v[0-9]+|/Users/[[:alnum:]_.-]+/|/projects?/|/proyectos/)' "$NVIM_ROOT"; then
+  printf 'Sanitization failed: machine-specific editor path found.\n' >&2
   exit 1
 fi
-if grep -RqE '(/mnt/[a-zA-Z]/Users/|\.nvm/versions/node/v[0-9]+|[Vv]aults?/|/projects?/|/proyectos/)' "$NVIM_ROOT"; then
-  printf 'Sanitization failed: machine-specific editor path found.\n' >&2
+if find "$NVIM_ROOT" -type f \( -name '*.spl' -o -name 'en_custom.txt' -o -name 'en_words.txt' -o -name 'es_words.txt' \) -print -quit | grep -q .; then
+  printf 'Sanitization failed: generated or bulk dictionary payload found.\n' >&2
+  exit 1
+fi
+if find "$NVIM_ROOT" -type d \( -name .atl -o -name lazy -o -name mason \) -print -quit | grep -q .; then
+  printf 'Sanitization failed: generated Neovim metadata or runtime checkout found.\n' >&2
   exit 1
 fi
 # A canonical checkout has one root .git directory; nested metadata is vendored.

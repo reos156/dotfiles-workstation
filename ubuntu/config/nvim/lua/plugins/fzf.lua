@@ -1,16 +1,2 @@
-return {
-  {
-    "ibhagwan/fzf-lua",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = {
-      fzf_opts = { ["--layout"] = "reverse-list" },
-      winopts = {
-        height = 0.85,
-        width = 0.85,
-        preview = { layout = "flex" },
-      },
-      files = { cwd_prompt = false },
-      grep = { rg_glob = true },
-    },
-  },
-}
+-- Obsolete compatibility stub. The active source configures fzf-lua in fzflua.lua.
+return {}

@@ -6,12 +6,13 @@ TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd -- "$TEST_DIR/.." && pwd -P)"
 NVIM_SOURCE="$ROOT/ubuntu/config/nvim"
 
-bash -n "$ROOT/ubuntu/install.sh" "$ROOT/ubuntu/verify.sh" "$ROOT/ubuntu/rollback.sh" "$ROOT/ubuntu/lib/common.sh" "$TEST_DIR/run.sh" "$TEST_DIR/sanitize.sh" "$TEST_DIR/bootstrap.sh"
+bash -n "$ROOT/ubuntu/install.sh" "$ROOT/ubuntu/verify.sh" "$ROOT/ubuntu/rollback.sh" "$ROOT/ubuntu/lib/common.sh" "$TEST_DIR/run.sh" "$TEST_DIR/sanitize.sh" "$TEST_DIR/nvim-inventory.sh" "$TEST_DIR/bootstrap.sh"
 if command -v zsh >/dev/null 2>&1; then
   zsh -n "$ROOT/ubuntu/config/zsh/.zshrc"
 fi
 printf 'ok - shell syntax is valid\n'
 "$TEST_DIR/sanitize.sh"
+"$TEST_DIR/nvim-inventory.sh"
 
 CASE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-workstation-tests.XXXXXX")"
 KEEP_ARTIFACTS="${DOTFILES_WORKSTATION_KEEP_TEST_ARTIFACTS:-0}"
@@ -55,25 +56,40 @@ done < <(find "$NVIM_SOURCE" -type f -name '*.lua' -print0)
 [[ "$lua_failures" -eq 0 ]] || { printf 'not ok - Lua parsing failed\n' >&2; exit 1; }
 printf 'ok - Lua sources parse where a parser is available\n'
 
+grep -Fq 'local linuxbrew_bin = "/home/linuxbrew/.linuxbrew/bin"' "$NVIM_SOURCE/init.lua" || fail 'default Linuxbrew prefix detection is missing'
+grep -Fq 'vim.fn.isdirectory(linuxbrew_bin) == 1' "$NVIM_SOURCE/init.lua" || fail 'default Linuxbrew detection must not depend on brew already being in PATH'
+grep -Fq 'vim.fn.system({ "brew", "--prefix" })' "$NVIM_SOURCE/init.lua" || fail 'dynamic Homebrew prefix discovery is missing'
+printf 'ok - default and dynamic Homebrew discovery are statically explicit\n'
+
 if command -v nvim >/dev/null 2>&1; then
+  DOTFILES_TEST_NVIM_INIT="$NVIM_SOURCE/init.lua" nvim --headless -u NONE -i NONE \
+    --cmd "luafile $TEST_DIR/nvim-init-portability.lua" +qa >/dev/null
+  printf 'ok - init exposes simulated default and dynamic Homebrew prefixes without network\n'
+
+  if [[ -n "${DOTFILES_ACTIVE_NVIM_ROOT:-}" ]]; then
+    DOTFILES_TEST_ACTIVE_UI="$DOTFILES_ACTIVE_NVIM_ROOT/lua/plugins/ui.lua" \
+      DOTFILES_TEST_PUBLISHED_UI="$NVIM_SOURCE/lua/plugins/ui.lua" \
+      nvim --headless -u NONE -i NONE --cmd "luafile $TEST_DIR/nvim-header-equivalence.lua" +qa >/dev/null
+    printf 'ok - evaluated dashboard header matches the active source byte-for-byte\n'
+  else
+    printf 'OPTIONAL active dashboard comparison (set DOTFILES_ACTIVE_NVIM_ROOT)\n'
+  fi
+
   nvim --headless -u NONE -i NONE \
     --cmd "lua vim.opt.rtp:prepend([=[$NVIM_SOURCE]=])" \
-    --cmd "lua local runtime = require('config.runtime'); assert(type(runtime) == 'table'); runtime.setup()" \
-    --cmd "lua dofile([=[$NVIM_SOURCE/lua/config/options.lua]=])" \
-    --cmd "lua dofile([=[$NVIM_SOURCE/lua/config/keymaps.lua]=])" \
-    --cmd "lua assert(type(dofile([=[$NVIM_SOURCE/lua/plugins/colorscheme.lua]=])) == 'table')" \
-    --cmd "lua assert(type(dofile([=[$NVIM_SOURCE/lua/plugins/fzf.lua]=])) == 'table')" \
-    --cmd "lua assert(type(dofile([=[$NVIM_SOURCE/lua/plugins/git.lua]=])) == 'table')" \
+    --cmd "lua assert(type(require('config.nodejs')) == 'table')" \
+    --cmd "lua assert(type(require('config.gentleman.utils')) == 'table')" \
+    --cmd "lua assert(type(dofile([=[$NVIM_SOURCE/lua/plugins/obsidian.lua]=])) == 'table')" \
+    --cmd "lua assert(type(dofile([=[$NVIM_SOURCE/lua/plugins/minidiff.lua]=])) == 'table')" \
     +qa >/dev/null
-  printf 'ok - portable config modules load without plugins or network\n'
+  printf 'ok - portable standalone modules load without plugins or network\n'
 fi
 
 for color in '#66cc66' '#303a30' '#cc6666' '#3a3030' '#ffcccc' '#612626' '#ccffcc' '#266126'; do
-  grep -Fq "$color" "$NVIM_SOURCE/lua/plugins/git.lua" || { printf 'Missing MiniDiff color: %s\n' "$color" >&2; exit 1; }
+  grep -Fq "$color" "$NVIM_SOURCE/lua/plugins/minidiff.lua" || { printf 'Missing MiniDiff color: %s\n' "$color" >&2; exit 1; }
 done
-[[ "$(grep -Fo 'signcolumn = false' "$NVIM_SOURCE/lua/plugins/git.lua" | wc -l)" -eq 1 ]]
-grep -Fq 'MiniDiff exclusively owns signs and inline overlays' "$NVIM_SOURCE/lua/plugins/git.lua"
-printf 'ok - MiniDiff palette and Gitsigns non-overlap are explicit\n'
+grep -Fq 'MiniDiffUpdated' "$NVIM_SOURCE/lua/plugins/minidiff.lua"
+printf 'ok - source MiniDiff palette and overlay behavior are preserved\n'
 
 grep -Fq 'stage: 2' "$ROOT/manifest.yaml"
 grep -Fq 'ubuntu/config/nvim' "$ROOT/manifest.yaml"

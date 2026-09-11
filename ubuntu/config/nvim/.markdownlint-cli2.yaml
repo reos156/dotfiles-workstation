@@ -1,0 +1,6 @@
+# Neovim defaults; project configuration can override these rules.
+config:
+  MD013: false
+  MD060: false
+  MD024:
+    siblings_only: true

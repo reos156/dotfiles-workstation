@@ -1,6 +1,6 @@
 # dotfiles-workstation
 
-Replicate a portable Windows + Ubuntu WSL workstation with a curated Neovim/LazyVim core. The installer manages reviewed configuration only: plugin sources remain upstream, runtime tools are discovered dynamically, and personal or generated editor state stays outside the bundle.
+Replicate a portable Windows + Ubuntu WSL workstation with the full user-authored Neovim/LazyVim personalization. Plugin sources remain upstream, current enabled/disabled state is preserved, runtime tools and personal paths are resolved locally, and generated editor state stays outside the bundle.
 
 ## Quick path
 
@@ -47,19 +47,27 @@ Replicate a portable Windows + Ubuntu WSL workstation with a curated Neovim/Lazy
 
 An AI agent must not infer any approval from the repository's existence.
 
-## Neovim core
+## Full Neovim personalization
 
-The managed `${XDG_CONFIG_HOME:-$HOME/.config}/nvim` directory provides:
+The managed `${XDG_CONFIG_HOME:-$HOME/.config}/nvim` directory publishes the complete active personalization snapshot:
 
-- a portable Lazy.nvim bootstrap and LazyVim core;
-- Catppuccin Mocha as the default transparent theme;
-- FzfLua as the picker, including selection grep and project-root selection grep;
-- portable Node discovery through active manager environments, `brew --prefix node`, then `PATH`;
-- conditional WSL clipboard integration only when `win32yank.exe` is executable;
-- MiniDiff signs and overlays using the official `git-split-diffs` Dark palette;
-- Gitsigns hunk actions with its signs, line highlights, number highlights, and word diff disabled so MiniDiff exclusively owns diff rendering.
+- LazyVim extras for Harpoon, Mini Files, Snacks picker, DAP, Biome, Prettier, ESLint, JSON, Markdown, Blink, MiniDiff, MiniSurround, and MiniHipatterns;
+- Markdown rendering, browser preview, markdownlint-cli2 configuration, keymaps, and lock entries;
+- custom Treesitter pinning, themes, dashboard/statusline UI, Tmux navigation, multi-cursor editing, Oil, Git helpers, DAP, and supporting utilities;
+- AI/provider and Obsidian specifications plus the original user-authored prompts, without credentials or provider authentication;
+- explicit negative specs that keep Copilot, CopilotChat, Avante, CodeCompanion, Claude Code, Gemini, OpenCode, Precognition, Smear, and related integrations disabled exactly as in the source snapshot.
 
-The selected core intentionally excludes overlapping file explorers, debuggers, Obsidian integration, and all AI integrations. LazyVim defaults still supply the coherent editing, LSP, formatting, completion, diagnostics, and Git foundation. Neovim itself must be installed separately at a LazyVim-supported version; this bundle does not choose a machine-specific package manager or binary path.
+Versioned or locked plugins are not necessarily enabled. Do not remove `enabled = false` merely because a spec or lock entry exists. Neovim itself must be installed separately at a LazyVim-supported version.
+
+### Local overrides
+
+Obsidian remains safely disabled and contains no personal path. Before a separately reviewed enablement, set `DOTFILES_NVIM_OBSIDIAN_PATH` to a confirmed existing notes directory and optionally set `DOTFILES_NVIM_OBSIDIAN_WORKSPACE`. See the deterministic human/agent workflow in [`docs/nvim-configuration-inventory.md`](docs/nvim-configuration-inventory.md).
+
+Never commit personal paths, tokens, provider authentication, histories, or runtime databases. If candidate directories are ambiguous, an installing agent must ask the human and leave the integration disabled.
+
+### Fidelity and known issues
+
+This iteration copies behavior rather than repairing it. [`docs/nvim-configuration-inventory.md`](docs/nvim-configuration-inventory.md) accounts for all 49 active source files and dictionary exclusions. [`docs/nvim-known-issues.md`](docs/nvim-known-issues.md) records intentionally deferred defects and overlaps for later focused commits.
 
 ### First bootstrap (optional network check)
 
@@ -71,16 +79,16 @@ Normal startup bootstraps Lazy.nvim and lockfile-recorded plugins into Neovim's 
 
 The script creates a temporary `HOME` and overrides all XDG config, data, state, and cache roots. It requires Git, Neovim, and network access, and removes its temporary tree afterward.
 
-### Controlled plugin updates
+### Controlled personalization updates
 
-Treat [`ubuntu/config/nvim/lazy-lock.json`](ubuntu/config/nvim/lazy-lock.json) as reviewed source metadata, not generated noise:
+Treat [`ubuntu/config/nvim/lazy-lock.json`](ubuntu/config/nvim/lazy-lock.json) as explicitly adapted reviewed metadata: it preserves all 69 source pins and adds the required published MiniDiff pin, for 70 entries total.
 
-1. Install the bundle in an isolated or reviewable environment.
-2. Run `:Lazy update` deliberately; never enable automatic updates.
-3. Review plugin source and lockfile changes, especially LazyVim compatibility.
-4. Copy back only the reviewed `lazy-lock.json` change.
-5. Run `./tests/run.sh` and the optional isolated bootstrap check.
-6. Commit configuration, tests, documentation, and lock metadata together as one work unit.
+1. Inventory the active source tree and compare it with [`docs/nvim-configuration-inventory.md`](docs/nvim-configuration-inventory.md).
+2. Copy user-authored configuration without translating prompts or changing activation state.
+3. Replace only machine-specific paths/names with documented portable variables; never copy secrets or runtime state.
+4. Run `:Lazy update` only when deliberately updating plugins, then review every lockfile change, including disabled specs.
+5. Run `./tests/run.sh` and `./ubuntu/verify.sh` against an isolated installed tree; use the optional network bootstrap only with approval.
+6. Update the inventory and known-issues backlog with the same work unit.
 
 Plugin checkouts are never copied or vendored, and `.git` directories are forbidden in this bundle.
 
@@ -139,7 +147,7 @@ The installer, verifier, and rollback never target:
 - `${XDG_STATE_HOME:-$HOME/.local/state}/nvim` (history, sessions, logs, and state);
 - `${XDG_CACHE_HOME:-$HOME/.cache}/nvim` (compiled and downloaded caches).
 
-The bundle also excludes personal AI specs and prompts, provider settings, histories, credentials, vault and project paths, Warp account/session state, shell history, databases, sockets, logs, backups from other installers, and copied Git metadata.
+The bundle includes AI/provider and Obsidian plugin configuration and original prompts, but excludes credentials, provider authentication, personal vault/project paths, histories, Warp account/session state, shell history, databases, sockets, logs, backups from other installers, generated dictionary bulk, and copied Git metadata.
 
 The test suite runs installs and rollbacks only under an isolated temporary `HOME`, checks idempotence and exact file/symlink/directory restoration, rejects special directory entries, preserves all Neovim runtime roots, and cleans temporary artifacts by default. Set `DOTFILES_WORKSTATION_KEEP_TEST_ARTIFACTS=1` only for an explicit debugging run.
 
