@@ -1,0 +1,20 @@
+# Portable Herdr UI configuration. Session and agent runtime state are excluded.
+[theme]
+name = "catppuccin-mocha"
+
+[theme.custom]
+panel_bg = "#1e1e2e"
+accent = "#89b4fa"
+green = "#a6e3a1"
+blue = "#89b4fa"
+red = "#f38ba8"
+yellow = "#f9e2af"
+
+[ui]
+accent = "#89b4fa"
+
+[keys]
+prefix = "ctrl+a"
+previous_agent = "prefix+alt+k"
+next_agent = "prefix+alt+j"
+focus_agent = "prefix+ctrl+1..9"

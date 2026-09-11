@@ -1,0 +1,23 @@
+# Never add captured machine state to this bundle.
+*.db
+*.db-*
+*.sqlite*
+*.sock
+*.log
+*.history
+*.token
+*.pem
+*.key
+backups/
+cache/
+
+# Neovim runtime/plugin payloads belong in XDG data, state, or cache.
+**/.git/
+ubuntu/config/nvim/lazy/
+ubuntu/config/nvim/mason/
+ubuntu/config/nvim/shada/
+ubuntu/config/nvim/swap/
+ubuntu/config/nvim/undo/
+ubuntu/config/nvim/view/
+ubuntu/config/nvim/spell/*.add
+ubuntu/config/nvim/spell/*.add.spl

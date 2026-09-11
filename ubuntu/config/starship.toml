@@ -1,0 +1,100 @@
+format = """\
+$directory\
+$os\
+$git_branch\
+$git_status\
+$fill\
+$nodejs\
+$rust\
+$golang\
+$php\
+$bun\
+$java\
+$c\
+$zig\
+$cmd_duration\
+$time\
+\n$character\
+"""
+
+add_newline = true
+command_timeout = 3600000
+palette = "catppuccin_mocha"
+
+[palettes.catppuccin_mocha]
+rosewater = "#f5e0dc"
+flamingo = "#f2cdcd"
+pink = "#f5c2e7"
+mauve = "#cba6f7"
+red = "#f38ba8"
+maroon = "#eba0ac"
+peach = "#fab387"
+yellow = "#f9e2af"
+green = "#a6e3a1"
+teal = "#94e2d5"
+sky = "#89dceb"
+sapphire = "#74c7ec"
+blue = "#89b4fa"
+lavender = "#b4befe"
+text = "#cdd6f4"
+subtext1 = "#bac2de"
+subtext0 = "#a6adc8"
+overlay2 = "#9399b2"
+overlay1 = "#7f849c"
+overlay0 = "#6c7086"
+surface2 = "#585b70"
+surface1 = "#45475a"
+surface0 = "#313244"
+base = "#1e1e2e"
+mantle = "#181825"
+crust = "#11111b"
+
+[fill]
+symbol = " "
+
+[character]
+success_symbol = "[❯](green)"
+error_symbol = "[❯](red)"
+vimcmd_symbol = "[N](bold red)"
+vimcmd_replace_one_symbol = "[R](bold peach)"
+vimcmd_visual_symbol = "[V](bold mauve)"
+
+[directory]
+format = "[$path](bold blue)[$read_only](blue) "
+truncation_length = 2
+truncation_symbol = "…/"
+truncate_to_repo = true
+read_only = " ro"
+
+[git_branch]
+format = "on [$symbol$branch](bold mauve) "
+symbol = "git:"
+
+[git_status]
+format = "[$all_status$ahead_behind](text) "
+
+[cmd_duration]
+format = "took [$duration](bold yellow) "
+min_time = 500
+
+[time]
+disabled = false
+time_format = "%R"
+format = "[$time](subtext0)"
+
+[nodejs]
+format = "[$version](green) "
+[rust]
+format = "[$version](red) "
+[golang]
+format = "[$version](teal) "
+[php]
+format = "[$version](peach) "
+[bun]
+format = "[$version](text) "
+[java]
+format = "[$version](red) "
+[c]
+format = "[$version](blue) "
+[zig]
+format = "[$version](peach) "

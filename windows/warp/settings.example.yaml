@@ -1,0 +1,14 @@
+# Manual transcription template; this is not a drop-in Warp settings database.
+profile:
+  kind: wsl
+  distribution: "<WSL_DISTRIBUTION>"
+  starting_directory: "~"
+appearance:
+  font_family: "Hack Nerd Font Mono"
+  theme: "Catppuccin Mocha"
+behavior:
+  confirm_close_multiple_tabs: true
+  copy_on_select: false
+privacy:
+  cloud_sync: "human-choice"
+  telemetry: "human-choice"

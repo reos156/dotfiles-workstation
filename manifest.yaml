@@ -1,0 +1,182 @@
+schema_version: 1
+bundle: dotfiles-workstation
+stage: 2
+intent: sanitized-portable-windows-ubuntu-wsl-and-neovim-replication
+
+scope:
+  windows: manual-documentation-and-templates-only
+  ubuntu_wsl: idempotent-agent-runnable-scripts
+  neovim: curated-lazyvim-core-configuration
+  technical_artifact_language: English
+
+distribution:
+  primary: Git clone or fetch from the canonical repository
+  ordinary_zip_or_tar_export: not-primary
+  normalized_archive_fallback:
+    format: gzip-compressed-POSIX-tar
+    metadata: numeric uid 0, numeric gid 0, epoch mtime, sorted tracked paths, no gzip timestamp
+    command: >-
+      git ls-files -z | tar -cf - --null --no-recursion --sort=name --mtime='@0'
+      --owner=0 --group=0 --numeric-owner --format=posix
+      --pax-option=delete=atime,delete=ctime --files-from=- | gzip -n > ../dotfiles-workstation.tar.gz
+
+install_order:
+  - windows/prerequisites
+  - windows/warp-manual-setup
+  - ubuntu/preflight
+  - ubuntu/packages-after-human-approval
+  - ubuntu/recorded-upstream-downloads-after-human-approval
+  - ubuntu/managed-configurations-including-neovim
+  - ubuntu/optional-login-shell-change-after-human-approval
+  - no-network-verification
+
+windows_manual_prerequisites:
+  - WSL 2
+  - Ubuntu on WSL
+  - Warp for Windows
+  - Hack Nerd Font Mono
+windows_automation: prohibited
+
+ubuntu_automated_components:
+  apt_packages:
+    - zsh
+    - git
+    - curl
+    - ca-certificates
+    - fzf
+    - bat
+    - fd-find
+  recorded_upstreams:
+    - name: oh-my-zsh
+      source: https://github.com/ohmyzsh/ohmyzsh.git
+      revision: master
+      pin_status: floating-upstream-default-recorded
+    - name: zsh-autosuggestions
+      source: https://github.com/zsh-users/zsh-autosuggestions.git
+      revision: v0.7.1
+    - name: zsh-syntax-highlighting
+      source: https://github.com/zsh-users/zsh-syntax-highlighting.git
+      revision: 0.8.0
+    - name: zsh-autocomplete
+      source: https://github.com/marlonrichert/zsh-autocomplete.git
+      revision: 24.09.04
+  configured_optional_commands:
+    - starship
+    - atuin
+    - zoxide
+    - herdr
+    - nvim
+    - node
+    - brew
+    - win32yank.exe
+    - colorls
+  note: Optional command binaries are discovered at runtime and are not fetched by this stage.
+
+neovim_core:
+  config_source: ubuntu/config/nvim
+  framework: LazyVim
+  plugin_manager: lazy.nvim
+  default_colorscheme: catppuccin-mocha
+  picker: fzf-lua
+  diff_ui_owner: mini.diff
+  git_hunk_actions: gitsigns.nvim-with-signs-and-overlays-disabled
+  plugin_sources:
+    - https://github.com/folke/lazy.nvim.git
+    - https://github.com/LazyVim/LazyVim.git
+    - https://github.com/catppuccin/nvim.git
+    - https://github.com/ibhagwan/fzf-lua.git
+    - https://github.com/lewis6991/gitsigns.nvim.git
+    - https://github.com/nvim-mini/mini.diff.git
+  lock_metadata: ubuntu/config/nvim/lazy-lock.json
+  vendoring: prohibited
+  runtime_discovery:
+    homebrew: executable-and-prefix-query
+    node: environment-manager-bins-then-homebrew-prefix-then-PATH
+    wsl_clipboard: use-win32yank.exe-only-when-detected
+
+managed_destinations:
+  - source: ubuntu/config/zsh/.zshrc
+    destination: $HOME/.zshrc
+    kind: file
+  - source: ubuntu/config/starship.toml
+    destination: ${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml
+    kind: file
+  - source: ubuntu/config/atuin/config.toml
+    destination: ${XDG_CONFIG_HOME:-$HOME/.config}/atuin/config.toml
+    kind: file
+  - source: ubuntu/config/herdr/config.toml
+    destination: ${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.toml
+    kind: file
+  - source: ubuntu/config/nvim
+    destination: ${XDG_CONFIG_HOME:-$HOME/.config}/nvim
+    kind: directory
+
+downloaded_dependency_root:
+  destination: ${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles-workstation/deps
+  snapshot_policy: reproducible-downloads-not-copied-into-snapshots
+
+excluded_sensitive_and_runtime_state:
+  - shell command histories
+  - Atuin account data and history databases
+  - Warp account, workspace, telemetry, and session state
+  - credentials, private keys, access tokens, and authentication files
+  - personal AI plugin specs, prompts, histories, and provider settings
+  - personal vault paths and project paths
+  - optional overlapping explorers, debuggers, notes, and AI plugins
+  - Neovim plugin checkouts and Mason installations under XDG data
+  - Neovim state, history, sessions, logs, and caches under XDG state and cache
+  - caches and downloaded package payloads
+  - sockets, process identifiers, and lock files
+  - logs and crash reports
+  - backup archives from other installers
+  - Git metadata copied from a source machine
+
+human_approval_required:
+  - Windows installation and settings changes
+  - sudo and apt package installation
+  - network downloads from recorded upstream repositories
+  - optional isolated Neovim bootstrap download check
+  - changing the Ubuntu login shell
+
+verification_commands:
+  - bash -n ubuntu/install.sh ubuntu/verify.sh ubuntu/rollback.sh ubuntu/lib/common.sh tests/run.sh tests/sanitize.sh tests/bootstrap.sh
+  - tests/sanitize.sh
+  - tests/run.sh
+  - ubuntu/verify.sh
+optional_network_verification:
+  command: tests/bootstrap.sh --approve-network
+  isolation: temporary-HOME-and-all-XDG-runtime-roots
+
+rollback_contract:
+  snapshot_root: $HOME/.dotfiles-workstation/backups/<timestamp>
+  manifest: manifest.tsv
+  manifest_fields:
+    - destination
+    - state
+    - backup-relative-path
+    - symlink-target-base64
+  states:
+    regular: restore the exact pre-install regular file from the self-contained payload
+    symlink: recreate the symlink object from its captured target without dereferencing it
+    absent: remove only the managed file created at that destination
+    directory: restore the exact accepted regular-directory tree from the self-contained payload
+    absent-directory: remove only the managed Neovim configuration directory created by that installation
+  managed_preflight:
+    timing: before packages, downloads, snapshots, or managed-config writes
+    coverage: all managed sources, all current destinations, and recursive Neovim tree entries
+    rejection_result: no managed destination or snapshot mutation
+  directory_safety:
+    accepted_entries:
+      - regular files
+      - directories
+      - symlinks
+    unsupported_entries: rejected before snapshot, replacement, or restoration
+    replacement: sibling staging and displaced-directory recovery
+  unchanged_bytes_and_tree: no snapshot entry and no backup payload
+  list_command: ubuntu/rollback.sh --list
+  restore_command: ubuntu/rollback.sh <timestamp>
+  never_touched:
+    - ${XDG_DATA_HOME:-$HOME/.local/share}/nvim
+    - ${XDG_STATE_HOME:-$HOME/.local/state}/nvim
+    - ${XDG_CACHE_HOME:-$HOME/.cache}/nvim
+  limitation: downloaded dependency checkouts and apt packages are not removed
