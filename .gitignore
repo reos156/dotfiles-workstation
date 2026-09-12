@@ -26,3 +26,5 @@ ubuntu/config/nvim/spell/en_words.txt
 ubuntu/config/nvim/spell/es_words.txt
 ubuntu/config/nvim/lua/plugins/.atl/
 ubuntu/config/nvim/spell/*.add.spl
+# Local Pi runtime state
+.atl/

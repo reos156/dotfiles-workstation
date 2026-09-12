@@ -8,7 +8,10 @@ Windows changes are deliberately outside automation. A human must review and per
 2. In an elevated PowerShell window, install WSL and an Ubuntu distribution using Microsoft's documented command.
 3. Restart Windows if requested.
 4. Launch Ubuntu once, choose a Linux username, and finish first-run setup.
-5. In PowerShell, confirm Ubuntu reports WSL version `2` with `wsl --list --verbose`.
+5. In PowerShell, run `wsl --list --verbose`; confirm the intended Ubuntu distribution by name and verify that it reports WSL version `2`.
+6. If more than one Ubuntu or migration-related distribution appears, inspect which one contains the intended files and configuration before any destructive action. Do not run `wsl --unregister`, delete a distribution, or remove its virtual disk merely to resolve a duplicate name.
+
+The dotfiles installer does not repair, migrate, restart, shut down, unregister, or delete WSL distributions. Diagnose unexpected WSL lifecycle failures separately before changing dotfiles.
 
 Do not place a real username, distribution identifier, or Windows profile path in this bundle.
 

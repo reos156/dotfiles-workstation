@@ -2,6 +2,36 @@ schema_version: 1
 bundle: dotfiles-workstation
 stage: 2
 intent: sanitized-portable-windows-ubuntu-wsl-and-neovim-replication
+implemented_profile: base-config
+
+fidelity_choices:
+  selection_kind: pre-install human decision; never installer flags or state
+  base-config:
+    status: implemented
+    contract: repository APT baseline, recorded Zsh downloads, and managed configuration
+  compatible-toolchain:
+    status: not-implemented
+    future_requirements: separate reviewed installation with compatibility constraints and package source policy
+  source-baseline:
+    status: versioned-observed-reference
+    date: 2026-09-11
+    document: docs/source-baseline-2026-09-11.md
+    semantics: target reference for separately reviewed reconciliation; not an automatic installation profile
+    installer_flag: false
+    unresolved_evidence:
+      - source URLs
+      - checksums or signatures
+      - activation and rollback
+      - ca-certificates version
+      - win32yank.exe version
+
+profile_contract:
+  apt_baseline: installed after explicit approval
+  recorded_zsh_downloads: cloned after explicit approval
+  managed_configuration: five destinations with scoped snapshots
+  optional_commands: configured only when present; binary installation deferred
+  neovim_runtime_and_plugins: separate optional bootstrap and health scope
+  starship_visual_baseline: minimal two-line Catppuccin Mocha prompt from ubuntu/config/starship.toml; external Powerline layouts are customization
 
 scope:
   windows: manual-documentation-and-templates-only
@@ -71,6 +101,8 @@ ubuntu_automated_components:
     - win32yank.exe
     - colorls
   note: Optional command binaries are discovered at runtime and are not fetched by this stage.
+  integration_exclusions:
+    herdr: Herdr installation, Pi integration, audio backends, and agent or subagent lifecycle bridges
 
 neovim_personalization:
   config_source: ubuntu/config/nvim
@@ -120,6 +152,10 @@ neovim_personalization:
     homebrew: standard-linuxbrew-directory-then-executable-prefix-query
     node: environment-manager-bins-then-homebrew-prefix-then-PATH
     wsl_clipboard: source-behavior-preserved
+  runtime_health_boundary:
+    configuration_verification: managed tree equality and available Lua parsing only
+    plugin_parser_and_mason_state: outside base-config install, verification, and rollback
+    treesitter_reconciliation: targeted health check and parser repair before broad plugin updates
 
 managed_destinations:
   - source: ubuntu/config/zsh/.zshrc
@@ -166,13 +202,36 @@ human_approval_required:
   - changing the Ubuntu login shell
 
 verification_commands:
-  - bash -n ubuntu/install.sh ubuntu/verify.sh ubuntu/rollback.sh ubuntu/lib/common.sh tests/run.sh tests/sanitize.sh tests/bootstrap.sh
+  - bash -n ubuntu/install.sh ubuntu/check-runtime.sh ubuntu/verify.sh ubuntu/rollback.sh ubuntu/lib/common.sh tests/run.sh tests/runtime-checks.sh tests/sanitize.sh tests/bootstrap.sh
   - tests/sanitize.sh
+  - tests/runtime-checks.sh
   - tests/run.sh
   - ubuntu/verify.sh
 optional_network_verification:
   command: tests/bootstrap.sh --approve-network
   isolation: temporary-HOME-and-all-XDG-runtime-roots
+
+optional_runtime_diagnostics:
+  command: ubuntu/check-runtime.sh
+  document: docs/installation-runtime-remedies.md
+  automatic_during_install: false
+  default_mode: read-only
+  isolation: temporary HOME and XDG config, state, and cache roots; existing real XDG data root
+  existing_runtime_reads:
+    - Neovim data site parser
+    - nvim-treesitter plugin runtime and Vim highlights query
+    - Mason bin Marksman fallback
+  repair_boundary: one explicitly selected capability with matching approvals; outside managed snapshots
+  full_toolchain_installer: false
+  service_restarts: prohibited
+  herdr_execution_and_state: prohibited
+
+diagnostics_policy:
+  redact_before_sharing_or_committing:
+    - personal and machine-specific paths
+    - credentials, tokens, and authentication material
+    - shell histories and credential-bearing command output
+  password_transport_to_agents: prohibited
 
 rollback_contract:
   snapshot_root: $HOME/.dotfiles-workstation/backups/<timestamp>

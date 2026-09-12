@@ -12,27 +12,80 @@ Replicate a portable Windows + Ubuntu WSL workstation with the full user-authore
    ```
 
 2. Complete [`windows/PREREQUISITES.md`](windows/PREREQUISITES.md) and [`windows/WARP-SETUP.md`](windows/WARP-SETUP.md) manually. Windows changes are never automated.
-3. In Ubuntu on WSL, inspect [`manifest.yaml`](manifest.yaml), then preview the complete configuration change:
+3. Choose the fidelity target before installing anything optional:
+
+   | Fidelity choice | Availability and contract |
+   |---|---|
+   | `base-config` | **Implemented.** Installs only the repository's APT, recorded Zsh download, and managed-configuration baseline. |
+   | `compatible-toolchain` | **Not implemented.** A future, separately reviewed installation must define compatibility constraints and package-source policy. |
+   | `source-baseline` | **Versioned observed reference.** [`docs/source-baseline-2026-09-11.md`](docs/source-baseline-2026-09-11.md) records the active versions observed on the source workstation. Exact installation remains separately reviewed because source URLs, checksums/signatures, activation, and rollback are not fully captured. |
+
+   These names describe a pre-install human decision, not `install.sh` options. The installer has no `compatible-toolchain` or `source-baseline` flag or state. The observed baseline is a reconciliation target, not an automatic installer profile. The installer's only implemented profile is **`base-config`**:
+
+   | Scope | `base-config` behavior |
+   |---|---|
+   | APT baseline | Installs `zsh`, `git`, `curl`, certificates, `fzf`, `bat`, and `fd-find` after approval. |
+   | Recorded Zsh downloads | Clones the recorded Oh My Zsh and plugin revisions after approval. |
+   | Managed configuration | Installs the five documented destinations and snapshots changed prior state. |
+   | Optional commands | Configures integrations only when commands are already present; binary installation is deferred. |
+   | Neovim runtime/plugins | Remains a separate optional bootstrap and health scope. |
+
+4. In Ubuntu on WSL, inspect [`manifest.yaml`](manifest.yaml), then preview the complete configuration change:
 
    ```bash
    ./ubuntu/install.sh --dry-run --approve-packages --approve-downloads
    ```
 
-4. After explicit approval for `sudo` and upstream downloads, install:
+5. After explicit approval for `sudo` and upstream downloads, install:
 
    ```bash
    ./ubuntu/install.sh --approve-packages --approve-downloads
    ```
 
    On a prepared or offline system, use `--skip-packages --skip-downloads`. These flags skip shell dependencies; Lazy.nvim performs its own plugin bootstrap only when Neovim is later started with network access.
-5. Run the no-network checks:
+
+   If an assistant or CI-like runner has no interactive TTY, `sudo` may require direct human authentication. Run the approved command yourself in an interactive Ubuntu terminal. Never send a system password through an agent, chat, command argument, form, or redirected standard input.
+
+6. Start the configured shell with `exec zsh -l`, or open a new Warp Ubuntu tab. Then verify:
+
+   ```zsh
+   printf '%s\n' "$SHELL"
+   command -v zsh
+   alias ls
+   ```
+
+   `chsh` affects future login sessions; it cannot replace the shell process already running.
+
+7. Run the no-network checks:
 
    ```bash
    ./tests/run.sh
    ./ubuntu/verify.sh
    ```
 
-`verify.sh` compares every managed file and the complete Neovim configuration tree. It parses Lua with `luac` or Neovim when available, but does not load plugins, contact the network, or write state.
+Validation has three distinct meanings:
+
+| Result | Meaning | Next action |
+|---|---|---|
+| `install` succeeds | The managed write and snapshot flow completed. | Start a new shell or tab. |
+| `verify` passes | Managed source and deployed configuration are identical. | Treat this as the pre-personalization safe point. |
+| `verify` reports `CHANGED` | A managed destination drifted after installation. | Diff it and preserve or restore deliberately; this is not automatically an install failure. |
+
+`verify.sh` compares every managed file and the complete Neovim configuration tree. It parses Lua with `luac` or Neovim when available, but does not load plugins, contact the network, or validate plugin, parser, Mason, data, state, or cache health.
+
+Optional post-install runtime diagnostics are separate and read-only by default:
+
+```bash
+./ubuntu/check-runtime.sh
+```
+
+See [`docs/installation-runtime-remedies.md`](docs/installation-runtime-remedies.md) before explicitly approving any targeted repair. Runtime repairs are outside managed snapshots and are not a full toolchain installer.
+
+### Starship visual baseline
+
+[`ubuntu/config/starship.toml`](ubuntu/config/starship.toml) is this project's functional prompt baseline. It uses the Catppuccin Mocha palette and a minimal two-line layout: the first line shows the directory and time, plus Git branch/status, detected language-tool versions, and command duration when those modules have applicable context; the second line is the colored prompt character. Warp with **Shell (PS1)** input, **Hack Nerd Font Mono**, and the documented Catppuccin theme should display that structure.
+
+External Powerline-style segment layouts are separate personalization. They are not bundled and are not an installation-success criterion.
 
 ## Human checkpoints
 
@@ -59,11 +112,15 @@ The managed `${XDG_CONFIG_HOME:-$HOME/.config}/nvim` directory publishes the com
 
 Versioned or locked plugins are not necessarily enabled. Do not remove `enabled = false` merely because a spec or lock entry exists. Neovim itself must be installed separately at a LazyVim-supported version.
 
+### Appearance defaults
+
+The global Neovim colorscheme is **Catppuccin**. The Lualine/statusline theme is **Gentleman Kanagawa Blur**, and the dashboard header is intentionally user-authored. Configuration retained with `enabled = false` is inactive; its presence is not evidence that the related integration is running.
+
 ### Local overrides
 
 Obsidian remains safely disabled and contains no personal path. Before a separately reviewed enablement, set `DOTFILES_NVIM_OBSIDIAN_PATH` to a confirmed existing notes directory and optionally set `DOTFILES_NVIM_OBSIDIAN_WORKSPACE`. See the deterministic human/agent workflow in [`docs/nvim-configuration-inventory.md`](docs/nvim-configuration-inventory.md).
 
-Never commit personal paths, tokens, provider authentication, histories, or runtime databases. If candidate directories are ambiguous, an installing agent must ask the human and leave the integration disabled.
+Never commit personal paths, tokens, provider authentication, histories, or runtime databases. Before sharing or storing diagnostics, redact machine-specific paths, credentials, tokens, authentication material, shell histories, and credential-bearing command output. If candidate directories are ambiguous, an installing agent must ask the human and leave the integration disabled.
 
 ### Fidelity and known issues
 
@@ -78,6 +135,8 @@ Normal startup bootstraps Lazy.nvim and lockfile-recorded plugins into Neovim's 
 ```
 
 The script creates a temporary `HOME` and overrides all XDG config, data, state, and cache roots. It requires Git, Neovim, and network access, and removes its temporary tree afterward.
+
+Configuration equality does not prove Neovim runtime health. After bootstrap or a Neovim/plugin change, run `:checkhealth nvim-treesitter`. Reconcile only the affected parser first (for example, reinstall that parser with the supported nvim-treesitter command), re-run targeted health, and inspect compatibility before any broad `:Lazy update`. Plugin checkouts, parsers, Mason packages, and other runtime state are outside the installer snapshot and rollback boundary.
 
 ### Controlled personalization updates
 
@@ -117,6 +176,8 @@ This command archives tracked paths only, sorts them, fixes numeric owner/group 
 | `ubuntu/config/nvim` | `${XDG_CONFIG_HOME:-$HOME/.config}/nvim` | directory |
 
 Oh My Zsh and its plugins are cloned into `${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles-workstation/deps`. They are reproducible dependencies, not source-machine snapshot payloads.
+
+The Herdr file is portable UI configuration only. This bundle does not install Herdr, Pi integrations, audio backends, or agent/subagent lifecycle bridges, and it does not promise indicators or completion sounds for those external components.
 
 ## Exact backup and rollback
 

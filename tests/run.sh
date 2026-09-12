@@ -6,13 +6,11 @@ TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd -- "$TEST_DIR/.." && pwd -P)"
 NVIM_SOURCE="$ROOT/ubuntu/config/nvim"
 
-bash -n "$ROOT/ubuntu/install.sh" "$ROOT/ubuntu/verify.sh" "$ROOT/ubuntu/rollback.sh" "$ROOT/ubuntu/lib/common.sh" "$TEST_DIR/run.sh" "$TEST_DIR/sanitize.sh" "$TEST_DIR/nvim-inventory.sh" "$TEST_DIR/bootstrap.sh"
+bash -n "$ROOT/ubuntu/install.sh" "$ROOT/ubuntu/check-runtime.sh" "$ROOT/ubuntu/verify.sh" "$ROOT/ubuntu/rollback.sh" "$ROOT/ubuntu/lib/common.sh" "$TEST_DIR/run.sh" "$TEST_DIR/runtime-checks.sh" "$TEST_DIR/sanitize.sh" "$TEST_DIR/nvim-inventory.sh" "$TEST_DIR/bootstrap.sh"
 if command -v zsh >/dev/null 2>&1; then
   zsh -n "$ROOT/ubuntu/config/zsh/.zshrc"
 fi
 printf 'ok - shell syntax is valid\n'
-"$TEST_DIR/sanitize.sh"
-"$TEST_DIR/nvim-inventory.sh"
 
 CASE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-workstation-tests.XXXXXX")"
 KEEP_ARTIFACTS="${DOTFILES_WORKSTATION_KEEP_TEST_ARTIFACTS:-0}"
@@ -25,6 +23,67 @@ cleanup() {
 }
 trap cleanup EXIT
 
+pass() { printf 'ok - %s\n' "$1"; }
+fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
+assert_file() { [[ -f "$1" && ! -L "$1" ]] || fail "expected regular file: $1"; }
+assert_not_exists() { [[ ! -e "$1" && ! -L "$1" ]] || fail "expected absent path: $1"; }
+
+SANITIZE_REPO="$CASE_DIR/sanitize-repo"
+mkdir -p "$SANITIZE_REPO/tests" "$SANITIZE_REPO/.atl"
+cp -- "$TEST_DIR/sanitize.sh" "$SANITIZE_REPO/tests/sanitize.sh"
+printf 'safe tracked payload\n' >"$SANITIZE_REPO/README.md"
+printf '.atl/\n' >"$SANITIZE_REPO/.gitignore"
+printf '/home/%s/private\naccess_%s = generated-only\n' 'generated-user' 'token' >"$SANITIZE_REPO/.atl/generated.log"
+git -C "$SANITIZE_REPO" init -q
+git -C "$SANITIZE_REPO" add tests/sanitize.sh README.md .gitignore
+if ! "$SANITIZE_REPO/tests/sanitize.sh" >"$CASE_DIR/sanitize-ignored.out" 2>&1; then
+  fail 'sanitizer rejected ignored or untracked generated workspace state'
+fi
+pass 'sanitizer ignores generated workspace state outside Git-tracked content'
+
+SANITIZE_ARCHIVE="$CASE_DIR/sanitize-archive"
+mkdir -p "$SANITIZE_ARCHIVE/tests"
+cp -- "$TEST_DIR/sanitize.sh" "$SANITIZE_ARCHIVE/tests/sanitize.sh"
+printf '/home/%s/private\n' 'archive-user' >"$SANITIZE_ARCHIVE/tracked-payload.txt"
+if "$SANITIZE_ARCHIVE/tests/sanitize.sh" >"$CASE_DIR/sanitize-archive-payload.out" 2>&1; then
+  fail 'archive sanitizer accepted a machine-specific path payload'
+fi
+grep -Fq 'machine-specific home path found' "$CASE_DIR/sanitize-archive-payload.out" || fail 'archive sanitizer failed for the wrong reason'
+pass 'sanitizer rejects tracked-like archive payloads without Git metadata'
+
+assert_archive_credential_rejected() {
+  local label="$1" payload_kind="$2"
+  local fixture="$CASE_DIR/sanitize-credential-$payload_kind"
+  mkdir -p "$fixture/tests"
+  cp -- "$TEST_DIR/sanitize.sh" "$fixture/tests/sanitize.sh"
+  case "$payload_kind" in
+    password) printf '%s = %s\n' 'password' 'hunter2' >"$fixture/payload.txt" ;;
+    token) printf '%s = %s%s\n' 'token' 'ghp_' 'exampleSecretValue1234567890' >"$fixture/payload.txt" ;;
+    private-key)
+      printf '%s%s%s\n%s\n%s%s%s\n' \
+        '-----BEGIN ' 'OPENSSH PRIVATE' ' KEY-----' \
+        'representative-key-material' \
+        '-----END ' 'OPENSSH PRIVATE' ' KEY-----' >"$fixture/payload.txt"
+      ;;
+    *) fail "unknown sanitizer credential fixture: $payload_kind" ;;
+  esac
+  if "$fixture/tests/sanitize.sh" >"$CASE_DIR/sanitize-$payload_kind.out" 2>&1; then
+    fail "sanitizer accepted tracked-like $label payload"
+  fi
+  grep -Fq 'credential-like payload found' "$CASE_DIR/sanitize-$payload_kind.out" || fail "sanitizer rejected $label payload for the wrong reason"
+  pass "sanitizer rejects tracked-like $label payload"
+}
+
+assert_archive_credential_rejected 'password assignment' password
+assert_archive_credential_rejected 'generic token assignment' token
+assert_archive_credential_rejected 'OpenSSH private-key block' private-key
+
+"$TEST_DIR/sanitize.sh"
+"$TEST_DIR/nvim-inventory.sh"
+# Run this path directly: the tracked-only archive fixture intentionally excludes
+# new untracked files from its copied tree.
+"$TEST_DIR/runtime-checks.sh"
+
 TEST_HOME="$CASE_DIR/home"
 mkdir -p "$TEST_HOME"
 export HOME="$TEST_HOME"
@@ -33,11 +92,6 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_STATE_HOME="$HOME/.local/state"
 export XDG_CACHE_HOME="$HOME/.cache"
 export DOTFILES_WORKSTATION_TEST_MODE=1
-
-pass() { printf 'ok - %s\n' "$1"; }
-fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
-assert_file() { [[ -f "$1" && ! -L "$1" ]] || fail "expected regular file: $1"; }
-assert_not_exists() { [[ ! -e "$1" && ! -L "$1" ]] || fail "expected absent path: $1"; }
 
 if command -v python3 >/dev/null 2>&1; then
   python3 -m json.tool "$NVIM_SOURCE/lazy-lock.json" >/dev/null
@@ -96,6 +150,15 @@ grep -Fq 'ubuntu/config/nvim' "$ROOT/manifest.yaml"
 grep -Fq 'destination: ${XDG_CONFIG_HOME:-$HOME/.config}/nvim' "$ROOT/manifest.yaml"
 printf 'ok - manifest declares the stage-2 managed directory\n'
 
+SOURCE_BASELINE="$ROOT/docs/source-baseline-2026-09-11.md"
+grep -Fq 'docs/source-baseline-2026-09-11.md' "$ROOT/README.md" || fail 'README does not link the versioned source baseline'
+grep -Fq 'document: docs/source-baseline-2026-09-11.md' "$ROOT/manifest.yaml" || fail 'manifest does not reference the versioned source baseline'
+grep -Fq 'status: versioned-observed-reference' "$ROOT/manifest.yaml" || fail 'manifest does not declare the observed-reference status'
+grep -Fq 'versioned observed reference' "$SOURCE_BASELINE" || fail 'source baseline does not state its observed-reference status'
+grep -Fq '| ca-certificates | version not captured/unresolved |' "$SOURCE_BASELINE" || fail 'source baseline omits unresolved ca-certificates evidence'
+grep -Fq '| win32yank.exe | version not captured/unresolved |' "$SOURCE_BASELINE" || fail 'source baseline omits unresolved win32yank evidence'
+pass 'README, manifest, and source baseline preserve the observed-reference contract'
+
 for archive_document in "$ROOT/README.md" "$ROOT/manifest.yaml"; do
   for archive_flag in '--null' '--files-from=-' '--no-recursion' '--sort=name' "--mtime='@0'" '--owner=0' '--group=0' '--numeric-owner' '--format=posix' '--pax-option=delete=atime,delete=ctime' 'gzip -n'; do
     grep -Fq -- "$archive_flag" "$archive_document" || fail "normalized archive flag is undocumented in $archive_document: $archive_flag"
@@ -115,10 +178,13 @@ ARCHIVE_FIXTURE="$CASE_DIR/archive-fixture"
 ARCHIVE_ONE="$CASE_DIR/dotfiles-workstation-one.tar.gz"
 ARCHIVE_TWO="$CASE_DIR/dotfiles-workstation-two.tar.gz"
 mkdir -p "$ARCHIVE_FIXTURE"
-cp -a -- "$ROOT/." "$ARCHIVE_FIXTURE/"
-# Exercise the canonical tracked-file pipeline in an isolated repository,
-# regardless of whether the source checkout itself is tracked or untracked.
-rm -rf -- "$ARCHIVE_FIXTURE/.git"
+# Export current tracked working-tree bytes only, so unrelated ignored or
+# untracked workspace state cannot become archive payload by accident.
+(
+  cd -- "$ROOT"
+  git ls-files -z | tar -cf - --null --no-recursion --files-from=-
+) | tar -xf - -C "$ARCHIVE_FIXTURE"
+# Exercise the canonical tracked-file pipeline in an isolated repository.
 git -C "$ARCHIVE_FIXTURE" init -q
 git -C "$ARCHIVE_FIXTURE" add --all
 create_fixture_archive() {
@@ -189,6 +255,16 @@ mkdir -p "$XDG_CONFIG_HOME"
 
 DOTFILES_WORKSTATION_TIMESTAMP=20250101T000000Z \
   "$ROOT/ubuntu/install.sh" --dry-run --skip-packages --skip-downloads >"$CASE_DIR/dry-run.out"
+for contract_line in \
+  'Profile: base-config' \
+  'APT baseline:' \
+  'Recorded Zsh downloads:' \
+  'Managed configuration:' \
+  'Optional commands:' \
+  'Neovim runtime/plugins:'; do
+  grep -Fq "$contract_line" "$CASE_DIR/dry-run.out" || fail "dry-run contract section is missing: $contract_line"
+done
+pass 'dry run names the base-config profile and each installation scope'
 assert_not_exists "$HOME/.zshrc"
 assert_not_exists "$HOME/.dotfiles-workstation"
 assert_not_exists "$XDG_CONFIG_HOME/nvim"

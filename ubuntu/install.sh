@@ -72,6 +72,33 @@ run() {
   fi
 }
 
+print_toolchain_contract() {
+  cat <<'CONTRACT'
+Profile: base-config
+APT baseline: installs zsh, git, curl, certificates, fzf, bat, and fd-find after approval.
+Recorded Zsh downloads: clones the recorded Oh My Zsh and plugin revisions after approval.
+Managed configuration: installs the five documented destinations with a scoped rollback snapshot when changed.
+Optional commands: configures integrations only when commands are present; binary installation is deferred.
+Neovim runtime/plugins: separate optional bootstrap and health scope; not installed by base-config.
+CONTRACT
+  pws_log 'Non-TTY sudo may require direct authentication in an interactive Ubuntu terminal; never send a password to an agent.'
+}
+
+print_completion_guidance() {
+  cat <<'GUIDANCE'
+Post-install: start a fresh login shell with `exec zsh -l` or open a new Warp Ubuntu tab.
+Then verify:
+  printf '%s\n' "$SHELL"
+  command -v zsh
+  alias ls
+`chsh` affects future login sessions; it does not replace the shell process already running.
+Optional read-only runtime diagnostics (not run by this installer):
+  ./ubuntu/check-runtime.sh
+Runtime repairs require separate explicit approvals and are outside managed snapshots.
+See docs/installation-runtime-remedies.md before selecting any repair.
+GUIDANCE
+}
+
 install_packages() {
   local -a packages=(zsh git curl ca-certificates fzf bat fd-find)
   if ((SKIP_PACKAGES)); then
@@ -288,6 +315,7 @@ set_default_shell() {
   fi
 }
 
+print_toolchain_contract
 preflight
 preflight_managed_configs
 install_packages
@@ -298,4 +326,9 @@ if ((CHANGED)); then
   pws_log "Managed configuration installed. Snapshot: $SNAPSHOT_DIR"
 else
   pws_log 'Managed configuration already matches; no snapshot was created.'
+fi
+if ((DRY_RUN)); then
+  pws_log 'Dry run complete; no changes were made.'
+else
+  print_completion_guidance
 fi
