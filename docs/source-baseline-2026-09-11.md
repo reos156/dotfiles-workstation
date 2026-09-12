@@ -4,9 +4,23 @@
 
 This versioned observed reference was captured from the source workstation on 2026-09-11. It records the active command versions observed in that environment; those versions may differ from installed APT package versions.
 
-The baseline is a target/reference for a separately reviewed reconciliation. It is not proof of an installation source, release asset, checksum, or signature, and it is not an installer flag. The repository has no `install.sh` option that selects this profile.
+The baseline remains observed evidence, while `./ubuntu/install.sh --profile source-toolchain` now provides the separately reviewed Ubuntu 26.04 Linux x86_64 reproduction path. The profile pins command assets in `ubuntu/toolchain.lock.tsv` and Neovim runtime inputs in `ubuntu/runtime.lock.tsv`; it does not turn the original observation into publisher proof.
 
 No machine-specific executable paths are recorded here. A replay must verify both the resolved executable path and the command's reported version rather than infer the active tool from package-manager state alone.
+
+## Reproduction evidence
+
+| Evidence class | Tools | Meaning |
+|---|---|---|
+| Adjacent publisher checksum | Starship, Atuin | SHA256 came from the publisher's adjacent checksum asset. |
+| Publisher checksum list | Node.js | SHA256 came from `SHASUMS256.txt`. |
+| Official registry checksum | colorls | SHA256 identifies the `.gem`; RubyGems transitive dependencies are not fully locked. |
+| GitHub release API digest | zoxide, Herdr, Neovim, bat, fd | SHA256 was verified from release API digest metadata, not a signature. |
+| Official Git identity | Homebrew, Lazy/plugin checkouts | Homebrew tag `6.0.22` must resolve to commit `08e85c4e42f5d8f1ea17c36cb59cf61c2ccb26c3`; enabled Neovim checkouts must match repository `lazy-lock.json`; no publisher signatures were verified. |
+| Mason package receipts | 11 Mason packages | The official registry evolves; each receipt must retain the expected Mason package name and the pinned version in its actual `source.id`. Registry release tags and registry archive checksums are not reproduction requirements. |
+| GitHub asset digest | tree-sitter CLI | Official Linux x64 gzip 0.27.0 is verified before extraction; grammar revisions come from the locked nvim-treesitter checkout. |
+
+Downloads are verified before extraction or execution. Archive members and links are checked for unsafe paths. Version roots are retained beneath the XDG data directory, and only installer-owned links in `~/.local/bin` may be replaced. Homebrew uses a user-local prefix with automatic updates disabled; bottles targeting the standard Linuxbrew prefix may be unavailable. Mason npm and Colorls RubyGem transitive dependencies are not wholly frozen. `win32yank.exe` remains unresolved Windows interop and is not implemented by the Linux profile.
 
 ## Manifest-related active versions
 

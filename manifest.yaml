@@ -2,36 +2,49 @@ schema_version: 1
 bundle: dotfiles-workstation
 stage: 2
 intent: sanitized-portable-windows-ubuntu-wsl-and-neovim-replication
-implemented_profile: base-config
+implemented_profiles:
+  - base-config
+  - source-toolchain
 
 fidelity_choices:
   selection_kind: pre-install human decision; never installer flags or state
   base-config:
     status: implemented
     contract: repository APT baseline, recorded Zsh downloads, and managed configuration
-  compatible-toolchain:
-    status: not-implemented
-    future_requirements: separate reviewed installation with compatibility constraints and package source policy
+  source-toolchain:
+    status: implemented
+    platform: Ubuntu 26.04 Linux x86_64
+    contract: pinned verified user-local tools, compatible distro prerequisites, and approved pinned Neovim runtime bootstrap
   source-baseline:
     status: versioned-observed-reference
     date: 2026-09-11
     document: docs/source-baseline-2026-09-11.md
     semantics: target reference for separately reviewed reconciliation; not an automatic installation profile
-    installer_flag: false
+    installer_flag: --profile source-toolchain
+    resolved_evidence:
+      - source URLs and versions in ubuntu/toolchain.lock.tsv
+      - SHA256 or Git tag-and-commit identity with explicit provenance
+      - owned user-local activation and retained-version rollback
     unresolved_evidence:
-      - source URLs
-      - checksums or signatures
-      - activation and rollback
-      - ca-certificates version
-      - win32yank.exe version
+      - ca-certificates exact source version
+      - win32yank.exe asset and version
+      - colorls transitive RubyGem dependency lock
 
 profile_contract:
   apt_baseline: installed after explicit approval
   recorded_zsh_downloads: cloned after explicit approval
   managed_configuration: five destinations with scoped snapshots
   optional_commands: configured only when present; binary installation deferred
-  neovim_runtime_and_plugins: separate optional bootstrap and health scope
-  starship_visual_baseline: minimal two-line Catppuccin Mocha prompt from ubuntu/config/starship.toml; external Powerline layouts are customization
+  neovim_runtime_and_plugins: source-toolchain only, after separate --approve-runtime-bootstrap consent
+  starship_visual_baseline: shell-driven two-line Powerline prompt with the published Catppuccin Mocha palette from ubuntu/config/starship.toml
+  terminal_rendering_boundary: truecolor and configured Nerd Font glyph coverage; terminal settings remain manual and Warp is not the sole reference
+  shell_utf8_fallback: preserve effective UTF-8 locale; for absent, C, or POSIX select available C.UTF-8 or C.utf8 as shell-scoped LC_CTYPE before plugin initialization
+  shell_utf8_unavailable: continue nonfatally with actionable guidance; never claim glyph-safe output
+  source_toolchain_root: ${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles-workstation/tools/<tool>/<version>
+  source_toolchain_activation: ${HOME}/.local/bin installer-owned symlinks; conflicting unowned paths fail closed
+  source_toolchain_rollback: retained versions and activation.tsv support manual link rollback; configuration snapshot remains config-only
+  source_toolchain_runtime_lock: ubuntu/runtime.lock.tsv; pinned enabled plugins, Mason package versions, tree-sitter CLI/parsers, and core checks
+  source_toolchain_runtime_boundary: runtime data is outside config snapshots; no Zellij, Carapace, Docker, win32yank, audio playback, or Herdr startup claim
 
 scope:
   windows: manual-documentation-and-templates-only
@@ -57,6 +70,7 @@ install_order:
   - ubuntu/packages-after-human-approval
   - ubuntu/recorded-upstream-downloads-after-human-approval
   - ubuntu/managed-configurations-including-neovim
+  - ubuntu/pinned-neovim-runtime-after-separate-human-approval
   - ubuntu/optional-login-shell-change-after-human-approval
   - no-network-verification
 
@@ -100,7 +114,24 @@ ubuntu_automated_components:
     - brew
     - win32yank.exe
     - colorls
-  note: Optional command binaries are discovered at runtime and are not fetched by this stage.
+  source_toolchain:
+    lock: ubuntu/toolchain.lock.tsv
+    approvals: [--approve-packages, --approve-downloads, --approve-runtime-bootstrap]
+    skip_policy: --skip-packages and --skip-downloads rejected
+    apt_prerequisites: [build-essential, pkg-config, unzip, xz-utils, python3, wget, locales, ruby, ruby-dev, pulseaudio-utils]
+    pinned_tools: [starship, atuin, zoxide, herdr, nvim, node, colorls, bat, fd, homebrew]
+    integrity: SHA256 before extraction/execution; Homebrew official Git tag and commit identity
+    homebrew: user-local prefix, auto-update disabled, standard-prefix bottle compatibility not claimed
+    colorls: verified gem with official-registry transitive dependencies not fully locked
+    pulseaudio_utils: command availability only; playback not claimed
+    runtime_lock: ubuntu/runtime.lock.tsv
+    runtime: repository lazy-lock plugin commits, 11 package versions from the evolving official Mason registry, tree-sitter CLI 0.27.0 and parser set
+    runtime_verification: enabled checkout commits, Mason receipt package names and source versions, executables, parser objects, Vim/Markdown query compilation, core runtime checks
+    runtime_snapshot_boundary: XDG data is not included in managed config snapshots; customized conflicting runtime state fails closed
+    transitive_limit: Mason npm and Colorls RubyGem dependency graphs are not wholly frozen
+    end_to_end_limit: manually assembled Docker functional checks passed; later clean automated attempts exposed locally regression-tested fixes, but no fresh full automated install passed after the latest corrections
+    excluded: [win32yank.exe, Zellij, Carapace, Docker environment setup, audio playback, Herdr startup]
+  note: base-config discovers optional binaries; source-toolchain installs the listed pinned tools and bootstraps runtime only after all three approvals.
   integration_exclusions:
     herdr: Herdr installation, Pi integration, audio backends, and agent or subagent lifecycle bridges
 
@@ -202,7 +233,7 @@ human_approval_required:
   - changing the Ubuntu login shell
 
 verification_commands:
-  - bash -n ubuntu/install.sh ubuntu/check-runtime.sh ubuntu/verify.sh ubuntu/rollback.sh ubuntu/lib/common.sh tests/run.sh tests/runtime-checks.sh tests/sanitize.sh tests/bootstrap.sh
+  - bash -n ubuntu/install.sh ubuntu/check-runtime.sh ubuntu/verify.sh ubuntu/rollback.sh ubuntu/lib/common.sh ubuntu/lib/runtime-bootstrap.sh tests/run.sh tests/runtime-checks.sh tests/runtime-bootstrap.sh tests/toolchain-install.sh tests/sanitize.sh tests/bootstrap.sh
   - tests/sanitize.sh
   - tests/runtime-checks.sh
   - tests/run.sh

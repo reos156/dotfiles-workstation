@@ -6,7 +6,7 @@ TEST_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd -- "$TEST_DIR/.." && pwd -P)"
 NVIM_SOURCE="$ROOT/ubuntu/config/nvim"
 
-bash -n "$ROOT/ubuntu/install.sh" "$ROOT/ubuntu/check-runtime.sh" "$ROOT/ubuntu/verify.sh" "$ROOT/ubuntu/rollback.sh" "$ROOT/ubuntu/lib/common.sh" "$TEST_DIR/run.sh" "$TEST_DIR/runtime-checks.sh" "$TEST_DIR/sanitize.sh" "$TEST_DIR/nvim-inventory.sh" "$TEST_DIR/bootstrap.sh"
+bash -n "$ROOT/ubuntu/install.sh" "$ROOT/ubuntu/check-runtime.sh" "$ROOT/ubuntu/verify.sh" "$ROOT/ubuntu/rollback.sh" "$ROOT/ubuntu/lib/common.sh" "$ROOT/ubuntu/lib/toolchain.sh" "$ROOT/ubuntu/lib/runtime-bootstrap.sh" "$TEST_DIR/run.sh" "$TEST_DIR/runtime-checks.sh" "$TEST_DIR/runtime-bootstrap.sh" "$TEST_DIR/sanitize.sh" "$TEST_DIR/nvim-inventory.sh" "$TEST_DIR/bootstrap.sh" "$TEST_DIR/shell-appearance.sh" "$TEST_DIR/toolchain-install.sh"
 if command -v zsh >/dev/null 2>&1; then
   zsh -n "$ROOT/ubuntu/config/zsh/.zshrc"
 fi
@@ -83,6 +83,9 @@ assert_archive_credential_rejected 'OpenSSH private-key block' private-key
 # Run this path directly: the tracked-only archive fixture intentionally excludes
 # new untracked files from its copied tree.
 "$TEST_DIR/runtime-checks.sh"
+"$TEST_DIR/shell-appearance.sh"
+bash "$TEST_DIR/toolchain-install.sh"
+bash "$TEST_DIR/runtime-bootstrap.sh"
 
 TEST_HOME="$CASE_DIR/home"
 mkdir -p "$TEST_HOME"

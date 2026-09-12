@@ -7,7 +7,7 @@ ROOT="$(cd -- "$TEST_DIR/.." && pwd -P)"
 
 if [[ "${1:-}" != '--approve-network' || $# -ne 1 ]]; then
   printf 'Usage: tests/bootstrap.sh --approve-network\n' >&2
-  printf 'Runs Neovim bootstrap in an isolated HOME and may download plugins.\n' >&2
+  printf 'Runs the pinned runtime bootstrap in an isolated HOME and downloads plugins, tools, and parsers.\n' >&2
   exit 2
 fi
 command -v nvim >/dev/null 2>&1 || { printf 'Neovim is required.\n' >&2; exit 1; }
@@ -25,5 +25,6 @@ export XDG_CACHE_HOME="$HOME/.cache"
 mkdir -p "$XDG_CONFIG_HOME"
 cp -a -- "$ROOT/ubuntu/config/nvim" "$XDG_CONFIG_HOME/nvim"
 
-nvim --headless "+Lazy! sync" +qa
-printf 'Optional isolated Neovim bootstrap passed.\n'
+PATH="$(dirname -- "$(command -v nvim)"):$PATH" \
+  "$ROOT/ubuntu/lib/runtime-bootstrap.sh" --approve-runtime-bootstrap
+printf 'Optional isolated pinned Neovim runtime bootstrap passed.\n'

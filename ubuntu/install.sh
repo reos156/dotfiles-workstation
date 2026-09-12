@@ -5,13 +5,17 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/toolchain.sh
+source "$SCRIPT_DIR/lib/toolchain.sh"
 
 DRY_RUN=0
 APPROVE_PACKAGES=0
 APPROVE_DOWNLOADS=0
+APPROVE_RUNTIME_BOOTSTRAP=0
 SET_DEFAULT_SHELL=0
 SKIP_PACKAGES=0
 SKIP_DOWNLOADS=0
+PROFILE='base-config'
 SNAPSHOT_DIR=''
 MANIFEST=''
 CHANGED=0
@@ -20,21 +24,30 @@ usage() {
   cat <<'USAGE'
 Usage: ubuntu/install.sh [options]
 
+  --profile PROFILE     Select base-config (default) or source-toolchain.
   --dry-run             Print planned actions without changing the system.
   --approve-packages    Confirm human approval for apt/sudo package changes.
   --approve-downloads   Confirm human approval for recorded upstream downloads.
+  --approve-runtime-bootstrap
+                        Confirm pinned Neovim plugin, Mason, and parser runtime changes.
   --set-default-shell   Confirm human approval to run chsh for zsh.
-  --skip-packages       Do not install apt packages (useful for prepared systems/tests).
-  --skip-downloads      Do not clone Oh My Zsh or plugins.
+  --skip-packages       Skip base-config apt packages; rejected by source-toolchain.
+  --skip-downloads      Skip base-config downloads; rejected by source-toolchain.
   -h, --help            Show this help.
 USAGE
 }
 
 while (($#)); do
   case "$1" in
+    --profile)
+      (($# >= 2)) || pws_die '--profile requires a value.'
+      PROFILE="$2"
+      shift
+      ;;
     --dry-run) DRY_RUN=1 ;;
     --approve-packages) APPROVE_PACKAGES=1 ;;
     --approve-downloads) APPROVE_DOWNLOADS=1 ;;
+    --approve-runtime-bootstrap) APPROVE_RUNTIME_BOOTSTRAP=1 ;;
     --set-default-shell) SET_DEFAULT_SHELL=1 ;;
     --skip-packages) SKIP_PACKAGES=1 ;;
     --skip-downloads) SKIP_DOWNLOADS=1 ;;
@@ -45,6 +58,10 @@ while (($#)); do
 done
 
 pws_require_safe_home
+[[ "$PROFILE" == base-config || "$PROFILE" == source-toolchain ]] || pws_die "Unknown profile: $PROFILE"
+if [[ "$PROFILE" == base-config ]] && ((APPROVE_RUNTIME_BOOTSTRAP)); then
+  pws_die '--approve-runtime-bootstrap is valid only with --profile source-toolchain.'
+fi
 
 preflight() {
   if [[ "${DOTFILES_WORKSTATION_TEST_MODE:-0}" == 1 ]]; then
@@ -72,7 +89,7 @@ run() {
   fi
 }
 
-print_toolchain_contract() {
+print_base_config_contract() {
   cat <<'CONTRACT'
 Profile: base-config
 APT baseline: installs zsh, git, curl, certificates, fzf, bat, and fd-find after approval.
@@ -99,13 +116,26 @@ See docs/installation-runtime-remedies.md before selecting any repair.
 GUIDANCE
 }
 
+validate_source_toolchain_request() {
+  pws_validate_toolchain_platform
+  if ((SKIP_PACKAGES || SKIP_DOWNLOADS)); then
+    pws_die 'The source-toolchain profile does not accept --skip-packages or --skip-downloads; use base-config for explicitly pre-provisioned paths.'
+  fi
+  if ((!DRY_RUN && (!APPROVE_PACKAGES || !APPROVE_DOWNLOADS || !APPROVE_RUNTIME_BOOTSTRAP))); then
+    pws_die 'The source-toolchain profile requires --approve-packages, --approve-downloads, and --approve-runtime-bootstrap before any mutation.'
+  fi
+}
+
 install_packages() {
   local -a packages=(zsh git curl ca-certificates fzf bat fd-find)
+  if [[ "$PROFILE" == source-toolchain ]]; then
+    packages+=(build-essential pkg-config unzip xz-utils python3 wget locales ruby ruby-dev pulseaudio-utils)
+  fi
   if ((SKIP_PACKAGES)); then
     pws_log 'Skipping apt packages.'
     return
   fi
-  if ((!APPROVE_PACKAGES)); then
+  if ((!DRY_RUN && !APPROVE_PACKAGES)); then
     pws_die 'Package installation requires --approve-packages after explicit human approval.'
   fi
   run sudo apt-get update
@@ -136,7 +166,7 @@ install_downloads() {
     pws_log 'Skipping upstream downloads.'
     return
   fi
-  if ((!APPROVE_DOWNLOADS)); then
+  if ((!DRY_RUN && !APPROVE_DOWNLOADS)); then
     pws_die 'Upstream downloads require --approve-downloads after explicit human approval.'
   fi
   install_checkout 'Oh My Zsh' 'https://github.com/ohmyzsh/ohmyzsh.git' 'master' "$deps/oh-my-zsh"
@@ -315,12 +345,26 @@ set_default_shell() {
   fi
 }
 
-print_toolchain_contract
+if [[ "$PROFILE" == source-toolchain ]]; then
+  pws_print_source_toolchain_contract
+  bash "$SCRIPT_DIR/lib/runtime-bootstrap.sh" --dry-run
+else
+  print_base_config_contract
+fi
 preflight
+if [[ "$PROFILE" == source-toolchain ]]; then
+  validate_source_toolchain_request
+fi
 preflight_managed_configs
 install_packages
 install_downloads
+if [[ "$PROFILE" == source-toolchain ]]; then
+  pws_install_source_toolchain
+fi
 install_configs
+if [[ "$PROFILE" == source-toolchain && "$DRY_RUN" -eq 0 ]]; then
+  bash "$SCRIPT_DIR/lib/runtime-bootstrap.sh" --approve-runtime-bootstrap
+fi
 set_default_shell
 if ((CHANGED)); then
   pws_log "Managed configuration installed. Snapshot: $SNAPSHOT_DIR"

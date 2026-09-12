@@ -21,6 +21,36 @@ DWS_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 DWS_DEPS="$DWS_DATA_HOME/dotfiles-workstation/deps"
 export ZSH="$DWS_DEPS/oh-my-zsh"
 
+# Ruby-based prompt and listing tools need a UTF-8 character locale to retain
+# Nerd Font glyph bytes. Respect an effective UTF-8 locale selected by the user.
+DWS_EFFECTIVE_LOCALE="${LC_ALL:-${LC_CTYPE:-${LANG:-C}}}"
+case "${DWS_EFFECTIVE_LOCALE:l}" in
+  ''|c|posix)
+    DWS_UTF8_LOCALE=''
+    if command -v locale >/dev/null 2>&1; then
+      while IFS= read -r DWS_AVAILABLE_LOCALE; do
+        case "${DWS_AVAILABLE_LOCALE:l}" in
+          c.utf-8|c.utf8)
+            DWS_UTF8_LOCALE="$DWS_AVAILABLE_LOCALE"
+            break
+            ;;
+        esac
+      done <<< "$(locale -a 2>/dev/null)"
+    fi
+    if [[ -n "$DWS_UTF8_LOCALE" ]]; then
+      # LC_ALL would override LC_CTYPE, so release only its C/POSIX value.
+      unset LC_ALL
+      export LC_CTYPE="$DWS_UTF8_LOCALE"
+    else
+      print -u2 'dotfiles-workstation: UTF-8 locale unavailable; icons may be omitted. Install or generate C.UTF-8 (or C.utf8), then start a new shell.'
+    fi
+    ;;
+  *utf-8*|*utf8*)
+    # Preserve the user's effective UTF-8 locale and its precedence unchanged.
+    ;;
+esac
+unset DWS_EFFECTIVE_LOCALE DWS_UTF8_LOCALE DWS_AVAILABLE_LOCALE
+
 if [[ -r "$ZSH/oh-my-zsh.sh" ]]; then
   plugins=(git command-not-found)
   source "$ZSH/oh-my-zsh.sh"

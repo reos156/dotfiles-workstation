@@ -1,0 +1,11 @@
+# name	version	url	integrity	member	format	provenance
+starship	1.26.0	https://github.com/starship/starship/releases/download/v1.26.0/starship-x86_64-unknown-linux-gnu.tar.gz	321f0dd7af8340a5f2e6a8fec6538a04f617486f9ec70d878f91c09cd8deef22	starship	tar	publisher-adjacent-sha256
+atuin	18.19.0	https://github.com/atuinsh/atuin/releases/download/v18.19.0/atuin-x86_64-unknown-linux-gnu.tar.gz	4d7559ada42407ee8ddc62349acf134dd297568d032c45a746a7aef8a6860648	atuin-x86_64-unknown-linux-gnu/atuin	tar	publisher-adjacent-sha256
+zoxide	0.10.0	https://github.com/ajeetdsouza/zoxide/releases/download/v0.10.0/zoxide-0.10.0-x86_64-unknown-linux-musl.tar.gz	2d93385b99f3e82cf2701609a1bffcad863fbeb75aa3fe7eb6be4d29be68b1ae	zoxide	tar	github-release-api-digest
+herdr	0.7.5	https://github.com/herdrdev/herdr/releases/download/v0.7.5/herdr-linux-x86_64	3dc83288073e4c2d3c679a30e7be97bcca9141c6fd17dbbb9219142e95c59253	herdr-linux-x86_64	raw	github-release-api-digest
+nvim	0.12.4	https://github.com/neovim/neovim/releases/download/v0.12.4/nvim-linux-x86_64.tar.gz	012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628	nvim-linux-x86_64/bin/nvim	tree	github-release-api-digest
+node	22.23.1	https://nodejs.org/dist/v22.23.1/node-v22.23.1-linux-x64.tar.xz	9749e988f437343b7fa832c69ded82a312e41a03116d766797ac14f6f9eee578	node-v22.23.1-linux-x64/bin/node	tree	publisher-shasums256
+colorls	1.5.0	https://rubygems.org/gems/colorls-1.5.0.gem	b0933fa8c82f088a05c2599ab50e32fe2842a06b2ae2eec2ab16e4c5f6effff0	gem	gem	official-registry-sha256
+bat	0.26.1	https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-x86_64-unknown-linux-gnu.tar.gz	726f04c8f576a7fd18b7634f1bbf2f915c43494c1c0f013baa3287edb0d5a2a3	bat-v0.26.1-x86_64-unknown-linux-gnu/bat	tar	github-release-api-digest
+fd	10.4.2	https://github.com/sharkdp/fd/releases/download/v10.4.2/fd-v10.4.2-x86_64-unknown-linux-gnu.tar.gz	def59805cd14b5651b68990855f426ad087f3b96881296d963910431ba3143c8	fd-v10.4.2-x86_64-unknown-linux-gnu/fd	tar	github-release-api-digest
+homebrew	6.0.22	https://github.com/Homebrew/brew	08e85c4e42f5d8f1ea17c36cb59cf61c2ccb26c3	6.0.22	git	official-git-tag-commit-no-signature

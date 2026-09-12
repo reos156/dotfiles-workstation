@@ -17,10 +17,10 @@ Replicate a portable Windows + Ubuntu WSL workstation with the full user-authore
    | Fidelity choice | Availability and contract |
    |---|---|
    | `base-config` | **Implemented.** Installs only the repository's APT, recorded Zsh download, and managed-configuration baseline. |
-   | `compatible-toolchain` | **Not implemented.** A future, separately reviewed installation must define compatibility constraints and package-source policy. |
-   | `source-baseline` | **Versioned observed reference.** [`docs/source-baseline-2026-09-11.md`](docs/source-baseline-2026-09-11.md) records the active versions observed on the source workstation. Exact installation remains separately reviewed because source URLs, checksums/signatures, activation, and rollback are not fully captured. |
+   | `source-toolchain` | **Implemented for Ubuntu 26.04 Linux x86_64.** Adds verified pinned user-local tools and the approved pinned Neovim runtime bootstrap matching the [`source baseline`](docs/source-baseline-2026-09-11.md). |
+   | `source-baseline` | **Versioned observed reference.** Records the source workstation versions and the evidence used to reproduce them. |
 
-   These names describe a pre-install human decision, not `install.sh` options. The installer has no `compatible-toolchain` or `source-baseline` flag or state. The observed baseline is a reconciliation target, not an automatic installer profile. The installer's only implemented profile is **`base-config`**:
+   `base-config` remains the default. Select the expanded profile explicitly with `--profile source-toolchain`:
 
    | Scope | `base-config` behavior |
    |---|---|
@@ -42,7 +42,18 @@ Replicate a portable Windows + Ubuntu WSL workstation with the full user-authore
    ./ubuntu/install.sh --approve-packages --approve-downloads
    ```
 
-   On a prepared or offline system, use `--skip-packages --skip-downloads`. These flags skip shell dependencies; Lazy.nvim performs its own plugin bootstrap only when Neovim is later started with network access.
+   On a prepared or offline system, use `--skip-packages --skip-downloads` only with `base-config`. The source-toolchain profile rejects both flags rather than silently continue with missing prerequisites.
+
+   To preview or install the pinned source toolchain:
+
+   ```bash
+   ./ubuntu/install.sh --profile source-toolchain --dry-run
+   ./ubuntu/install.sh --profile source-toolchain --approve-packages --approve-downloads --approve-runtime-bootstrap
+   ```
+
+   The expanded profile installs foundational APT packages and SHA256-verified official assets under `${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles-workstation/tools`, then activates owned links in `~/.local/bin`. After the managed Neovim config is snapshotted and installed, runtime approval permits changes under `${XDG_DATA_HOME:-$HOME/.local/share}/nvim`: Lazy restores enabled plugin checkouts to `lazy-lock.json`, Mason installs the 11 package versions in `ubuntu/runtime.lock.tsv` from its official evolving registry, and nvim-treesitter compiles the recorded parser set using tree-sitter CLI 0.27.0. The installer verifies plugin commits, Mason receipt package names and source versions, executables, parser objects, Vim/Markdown queries, and the existing core runtime checks before success.
+
+The dry run names this scope but starts no network or runtime work. A customized deployed Neovim lock must match the repository after the installer's config snapshot; runtime data is outside that snapshot and conflicting existing Lazy or tree-sitter bootstrap state fails closed instead of being overwritten. Disabled plugin specs remain disabled. Zellij, Carapace, Docker/environment setup, `win32yank.exe`, audio playback, and Herdr startup remain excluded. Mason's transitive npm dependencies and Colorls's transitive RubyGem dependencies are not wholly frozen.
 
    If an assistant or CI-like runner has no interactive TTY, `sudo` may require direct human authentication. Run the approved command yourself in an interactive Ubuntu terminal. Never send a system password through an agent, chat, command argument, form, or redirected standard input.
 
@@ -81,11 +92,13 @@ Optional post-install runtime diagnostics are separate and read-only by default:
 
 See [`docs/installation-runtime-remedies.md`](docs/installation-runtime-remedies.md) before explicitly approving any targeted repair. Runtime repairs are outside managed snapshots and are not a full toolchain installer.
 
-### Starship visual baseline
+### Portable shell appearance
 
-[`ubuntu/config/starship.toml`](ubuntu/config/starship.toml) is this project's functional prompt baseline. It uses the Catppuccin Mocha palette and a minimal two-line layout: the first line shows the directory and time, plus Git branch/status, detected language-tool versions, and command duration when those modules have applicable context; the second line is the colored prompt character. Warp with **Shell (PS1)** input, **Hack Nerd Font Mono**, and the documented Catppuccin theme should display that structure.
+[`ubuntu/config/starship.toml`](ubuntu/config/starship.toml) publishes the working Powerline prompt baseline with its Catppuccin Mocha palette intact. Zsh and Starship produce the layout: OS and user, directory, Git state, detected language runtimes, Docker context, and time flow through colored segments before the second-line prompt character. The layout is terminal-independent; Warp is one documented renderer, not the only supported visual reference.
 
-External Powerline-style segment layouts are separate personalization. They are not bundled and are not an installation-success criterion.
+The terminal remains the rendering boundary. It must support truecolor, use a Nerd Font containing the configured private-use glyphs, and allow the shell prompt to render rather than replacing it with a native input surface. The installer does not automate terminal fonts, themes, input modes, or other host settings.
+
+Before plugin initialization, the managed Zsh configuration also protects glyph output from an ASCII effective locale. Locale precedence is `LC_ALL`, then `LC_CTYPE`, then `LANG`. When that effective value is absent, `C`, or `POSIX`, the shell uses an available `C.UTF-8` or `C.utf8` as `LC_CTYPE`; an ASCII `LC_ALL` is unset so it cannot override the fallback. Existing UTF-8 selections remain unchanged. If neither portable UTF-8 locale exists, startup continues and prints guidance instead of claiming icons are safe. This behavior is shell-scoped and does not change the system locale.
 
 ## Human checkpoints
 
@@ -94,7 +107,7 @@ External Powerline-style segment layouts are separate personalization. They are 
 | Windows prerequisites | Install WSL 2, Ubuntu, Warp, and Hack Nerd Font Mono manually. |
 | Package changes | Approve `sudo apt-get update` and manifest-listed apt packages. |
 | Shell dependency downloads | Approve cloning the recorded Oh My Zsh upstreams. |
-| Neovim bootstrap | Choose when Neovim may download lockfile-recorded plugins. |
+| Neovim bootstrap | Pass `--approve-runtime-bootstrap` only after approving pinned plugin, Mason, CLI, and parser downloads outside config snapshots. |
 | Login shell | Approve `--set-default-shell`; otherwise `chsh` is never called. |
 | Existing configuration | Review the dry-run destination and snapshot boundary. |
 
@@ -218,3 +231,4 @@ The test suite runs installs and rollbacks only under an isolated temporary `HOM
 - The Oh My Zsh default branch is recorded but not commit-pinned; stable plugin releases are pinned where available.
 - Neovim and optional command binaries require separately reviewed installation choices.
 - Package and downloaded-dependency rollback are outside the snapshot contract.
+- A manually assembled Docker environment passed functional checks. Later automated clean-install attempts exposed the raw Herdr filename, safe internal Node symlink, and Colorls `.gem`/`GEM_HOME` defects; those corrections have local regression coverage, but a fresh full automated end-to-end install has not passed after the latest changes.

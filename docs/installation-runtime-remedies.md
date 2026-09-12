@@ -31,6 +31,32 @@ Approval flags record a decision; they do not provide a password. Run an approve
 
 Repairs check the selected capability first. Healthy capabilities and absent optional parent tools are no-ops. An installed nvim-treesitter runtime with a missing parser or query is not an absent parent. A repair is successful only when its targeted filesystem and runtime-query recheck passes.
 
+## Shell glyph and prompt rendering
+
+The managed `.zshrc` evaluates locale precedence (`LC_ALL`, then `LC_CTYPE`, then `LANG`) before loading plugins. If the effective locale is absent, `C`, or `POSIX`, it selects an installed `C.UTF-8` or `C.utf8` for `LC_CTYPE`. An ASCII `LC_ALL` is unset because it would otherwise override that selection. A valid existing UTF-8 locale is not changed, and no system-wide locale is configured.
+
+If startup reports that no portable UTF-8 locale is available, install or generate `C.UTF-8`/`C.utf8` through the operating system's supported locale workflow, then start a new shell. The warning is nonfatal: without that locale, Ruby tools such as `colorls` may encode through US-ASCII and omit Nerd Font glyphs.
+
+Prompt layout and rendering are separate boundaries:
+
+- Zsh/Starship provide the published Catppuccin Mocha Powerline layout.
+- The terminal must provide truecolor, the configured Nerd Font glyph coverage, and a shell-driven prompt surface.
+- Font, theme, and terminal input settings remain manual; diagnostics and repairs do not change them.
+
+A report of duplicated autosuggestion text disappeared after the Starship/locale update, but causality is unknown. The managed plugin order and plugin set are intentionally unchanged; this work does not claim a proven autosuggestion fix.
+
+## Source-toolchain versus runtime repair
+
+`ubuntu/install.sh --profile source-toolchain` is the complete installer boundary. It requires package, download, and runtime-bootstrap approval before mutation. After installing and snapshotting managed configuration, it restores enabled plugin checkouts from the repository `lazy-lock.json`, installs the recorded Mason package versions from the official registry plus the tree-sitter CLI/parser pins in `ubuntu/runtime.lock.tsv`, and runs the core runtime verifier with `~/.local/bin` and Mason's bin directory on `PATH`.
+
+The configuration snapshot remains config-only. Tool versions stay under the XDG data root, and `tools/activation.tsv` records the prior owned link or absence before activation in `~/.local/bin`. To roll back manually, inspect that ledger and point a link to a retained version. Do not copy a tool directory into a configuration snapshot or delete a retained version while an active link targets it.
+
+Homebrew is installed in the user-local version root rather than the standard Linuxbrew prefix; its wrapper disables automatic updates, and bottles that require the standard prefix may be unavailable. The verified colorls gem may fetch transitive dependencies from the official RubyGems registry after download approval; those dependency versions are not fully locked. `pulseaudio-utils` establishes command availability only, not working playback.
+
+Runtime data under the XDG data root remains outside managed configuration snapshots. Existing conflicting Lazy or tree-sitter bootstrap state fails closed; the installer does not overwrite a customized lock blindly. The official Mason registry evolves independently; receipts must still match the expected package name and source version. Mason npm and Colorls RubyGem transitive dependency graphs are not wholly frozen. Herdr audio behavior or startup, `win32yank.exe`, Zellij, Carapace, Docker/environment setup, and the unknown autosuggestion root cause are not installation-success claims.
+
+A manually assembled Docker environment passed functional checks. Later automated clean-install attempts found defects in raw Herdr filename handling, safe internal Node symlink handling, and Colorls `.gem` staging plus `GEM_HOME`; those paths are now covered by local regression tests. No fresh full automated end-to-end install has passed after all of the latest corrections, so the focused and offline suite results must not be presented as that proof.
+
 ## Safety and rollback boundary
 
 - Parser runtime changes and downloads are outside managed snapshots; parser rollback is manual.
